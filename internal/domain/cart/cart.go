@@ -1,7 +1,9 @@
 package cart
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 )
 
 type (
@@ -24,13 +26,22 @@ func NewCart() *Cart {
 	}
 }
 
-func (c *Cart) AddProduct(product Product, quantity int64) {
+func (c *Cart) AddProduct(product Product, quantity int64) error {
+	if err := ValidateProduct(product); err != nil {
+		return fmt.Errorf("invalid product: %w", err)
+	}
+
+	if err := ValidateQuantity(quantity); err != nil {
+		return fmt.Errorf("invalid quantity: %w", err)
+	}
+
 	if item, ok := c.Items[product.ID]; ok {
 		item.Quantity += quantity
-		return
+		return nil
 	}
 
 	c.Items[product.ID] = &CartItem{Product: product, Quantity: quantity}
+	return nil
 }
 
 func (c *Cart) AddPromotion(promotion Promotion) {
@@ -73,4 +84,30 @@ func (c *Cart) CalculateTotal() float64 {
 func DisplayPrice(price float64) string {
 	// Convert float64 price to string with 2 decimal places
 	return fmt.Sprintf("%.2f", price)
+}
+
+// ValidateProduct validates product data
+func ValidateProduct(product Product) error {
+	if strings.TrimSpace(product.ID) == "" {
+		return errors.New("product ID cannot be empty")
+	}
+
+	if product.Price < 0 {
+		return errors.New("product price cannot be negative")
+	}
+
+	if !product.ValidateDiscount() {
+		return errors.New("product discount must be between 0 and 100")
+	}
+
+	return nil
+}
+
+// ValidateQuantity validates quantity value
+func ValidateQuantity(quantity int64) error {
+	if quantity <= 0 {
+		return errors.New("quantity must be a positive integer")
+	}
+
+	return nil
 }
