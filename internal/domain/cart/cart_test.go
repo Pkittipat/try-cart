@@ -40,10 +40,11 @@ func TestCart_AddProduct(t *testing.T) {
 			},
 			quantity: 3,
 			setup: func(c *Cart) {
-				c.AddProduct(Product{
+				err := c.AddProduct(Product{
 					ID:    "1",
 					Price: 10.00,
 				}, 2)
+				assert.NoError(t, err)
 			},
 			want: map[string]*CartItem{
 				"1": {
@@ -61,7 +62,8 @@ func TestCart_AddProduct(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cart := NewCart()
 			tt.setup(cart)
-			cart.AddProduct(tt.product, tt.quantity)
+			err := cart.AddProduct(tt.product, tt.quantity)
+			assert.NoError(t, err)
 			assert.Equal(t, tt.want, cart.Items)
 		})
 	}
@@ -138,24 +140,27 @@ func TestCart_CalculateTotal(t *testing.T) {
 		{
 			name: "items without promotion",
 			setup: func(c *Cart) {
-				c.AddProduct(Product{
+				err := c.AddProduct(Product{
 					ID:    "1",
 					Price: 10.00,
 				}, 2)
-				c.AddProduct(Product{
+				assert.NoError(t, err)
+				err = c.AddProduct(Product{
 					ID:    "2",
 					Price: 20.00,
 				}, 1)
+				assert.NoError(t, err)
 			},
 			want: 40.00, // (10.00 * 2) + (20.00 * 1)
 		},
 		{
 			name: "items with percentage discount",
 			setup: func(c *Cart) {
-				c.AddProduct(Product{
+				err := c.AddProduct(Product{
 					ID:    "1",
 					Price: 10.00,
 				}, 2)
+				assert.NoError(t, err)
 				c.AddPromotion(Promotion{
 					ProductID:     "1",
 					PromotionType: PercentageDiscount,
@@ -167,10 +172,11 @@ func TestCart_CalculateTotal(t *testing.T) {
 		{
 			name: "items with buy 1 get 1 free",
 			setup: func(c *Cart) {
-				c.AddProduct(Product{
+				err := c.AddProduct(Product{
 					ID:    "1",
 					Price: 10.00,
 				}, 3)
+				assert.NoError(t, err)
 				c.AddPromotion(Promotion{
 					ProductID:     "1",
 					PromotionType: Buy1Get1Free,
@@ -181,14 +187,16 @@ func TestCart_CalculateTotal(t *testing.T) {
 		{
 			name: "items with total discount",
 			setup: func(c *Cart) {
-				c.AddProduct(Product{
+				err := c.AddProduct(Product{
 					ID:    "1",
 					Price: 10.00,
 				}, 2)
-				c.AddProduct(Product{
+				assert.NoError(t, err)
+				err = c.AddProduct(Product{
 					ID:    "2",
 					Price: 20.00,
 				}, 1)
+				assert.NoError(t, err)
 				c.AddPromotion(Promotion{
 					PromotionType: TotalDiscount,
 					Discount:      10,
@@ -379,7 +387,8 @@ func TestCart_CalculateTotal_WithProductDiscounts(t *testing.T) {
 					Price:    100.00, // 100.00
 					Discount: 10,     // 10% discount
 				}
-				cart.AddProduct(product, 1)
+				err := cart.AddProduct(product, 1)
+				assert.NoError(t, err)
 			},
 			want: 90.00, // 90.00
 		},
@@ -396,8 +405,10 @@ func TestCart_CalculateTotal_WithProductDiscounts(t *testing.T) {
 					Price:    50.00, // 50.00
 					Discount: 20,    // 20% discount
 				}
-				cart.AddProduct(productA, 1) // 90.00
-				cart.AddProduct(productB, 2) // 40.00 * 2 = 80.00
+				err := cart.AddProduct(productA, 1) // 90.00
+				assert.NoError(t, err)
+				err = cart.AddProduct(productB, 2) // 40.00 * 2 = 80.00
+				assert.NoError(t, err)
 			},
 			want: 170.00, // 90.00 + 80.00 = 170.00
 		},
@@ -409,7 +420,8 @@ func TestCart_CalculateTotal_WithProductDiscounts(t *testing.T) {
 					Price:    100.00, // 100.00
 					Discount: 10,     // 10% discount -> 90.00
 				}
-				cart.AddProduct(product, 2)
+				err := cart.AddProduct(product, 2)
+				assert.NoError(t, err)
 				// Apply 18% promotion discount on already discounted price
 				cart.AddPromotion(Promotion{
 					ProductID:     "A",
@@ -427,7 +439,8 @@ func TestCart_CalculateTotal_WithProductDiscounts(t *testing.T) {
 					Price:    100.00, // 100.00
 					Discount: 20,     // 20% discount -> 80.00
 				}
-				cart.AddProduct(product, 3)
+				err := cart.AddProduct(product, 3)
+				assert.NoError(t, err)
 				cart.AddPromotion(Promotion{
 					ProductID:     "A",
 					PromotionType: Buy1Get1Free,
@@ -443,7 +456,8 @@ func TestCart_CalculateTotal_WithProductDiscounts(t *testing.T) {
 					Price:    100.00, // 100.00
 					Discount: 10,     // 10% discount -> 90.00
 				}
-				cart.AddProduct(product, 2)
+				err := cart.AddProduct(product, 2)
+				assert.NoError(t, err)
 				cart.AddPromotion(Promotion{
 					PromotionType: TotalDiscount,
 					Discount:      15, // 15% total discount
@@ -459,6 +473,236 @@ func TestCart_CalculateTotal_WithProductDiscounts(t *testing.T) {
 			tt.setup(cart)
 			got := cart.CalculateTotal()
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestCart_AddProduct_Validation(t *testing.T) {
+	tests := []struct {
+		name        string
+		product     Product
+		quantity    int64
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "valid product and quantity",
+			product: Product{
+				ID:    "1",
+				Price: 10.00,
+			},
+			quantity:    2,
+			expectError: false,
+		},
+		{
+			name: "empty product ID",
+			product: Product{
+				ID:    "",
+				Price: 10.00,
+			},
+			quantity:    2,
+			expectError: true,
+			errorMsg:    "invalid product: product ID cannot be empty",
+		},
+		{
+			name: "whitespace product ID",
+			product: Product{
+				ID:    "   ",
+				Price: 10.00,
+			},
+			quantity:    2,
+			expectError: true,
+			errorMsg:    "invalid product: product ID cannot be empty",
+		},
+		{
+			name: "negative product price",
+			product: Product{
+				ID:    "1",
+				Price: -10.00,
+			},
+			quantity:    2,
+			expectError: true,
+			errorMsg:    "invalid product: product price cannot be negative",
+		},
+		{
+			name: "invalid product discount over 100",
+			product: Product{
+				ID:       "1",
+				Price:    10.00,
+				Discount: 150,
+			},
+			quantity:    2,
+			expectError: true,
+			errorMsg:    "invalid product: product discount must be between 0 and 100",
+		},
+		{
+			name: "invalid product discount negative",
+			product: Product{
+				ID:       "1",
+				Price:    10.00,
+				Discount: -10,
+			},
+			quantity:    2,
+			expectError: true,
+			errorMsg:    "invalid product: product discount must be between 0 and 100",
+		},
+		{
+			name: "zero quantity",
+			product: Product{
+				ID:    "1",
+				Price: 10.00,
+			},
+			quantity:    0,
+			expectError: true,
+			errorMsg:    "invalid quantity: quantity must be a positive integer",
+		},
+		{
+			name: "negative quantity",
+			product: Product{
+				ID:    "1",
+				Price: 10.00,
+			},
+			quantity:    -5,
+			expectError: true,
+			errorMsg:    "invalid quantity: quantity must be a positive integer",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cart := NewCart()
+			err := cart.AddProduct(tt.product, tt.quantity)
+			
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Equal(t, tt.errorMsg, err.Error())
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateProduct(t *testing.T) {
+	tests := []struct {
+		name        string
+		product     Product
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "valid product",
+			product: Product{
+				ID:       "valid-id",
+				Price:    100.00,
+				Discount: 10,
+			},
+			expectError: false,
+		},
+		{
+			name: "empty product ID",
+			product: Product{
+				ID:    "",
+				Price: 100.00,
+			},
+			expectError: true,
+			errorMsg:    "product ID cannot be empty",
+		},
+		{
+			name: "whitespace product ID",
+			product: Product{
+				ID:    "   ",
+				Price: 100.00,
+			},
+			expectError: true,
+			errorMsg:    "product ID cannot be empty",
+		},
+		{
+			name: "negative price",
+			product: Product{
+				ID:    "valid-id",
+				Price: -50.00,
+			},
+			expectError: true,
+			errorMsg:    "product price cannot be negative",
+		},
+		{
+			name: "invalid discount over 100",
+			product: Product{
+				ID:       "valid-id",
+				Price:    100.00,
+				Discount: 150,
+			},
+			expectError: true,
+			errorMsg:    "product discount must be between 0 and 100",
+		},
+		{
+			name: "invalid negative discount",
+			product: Product{
+				ID:       "valid-id",
+				Price:    100.00,
+				Discount: -10,
+			},
+			expectError: true,
+			errorMsg:    "product discount must be between 0 and 100",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateProduct(tt.product)
+			
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Equal(t, tt.errorMsg, err.Error())
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateQuantity(t *testing.T) {
+	tests := []struct {
+		name        string
+		quantity    int64
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name:        "valid positive quantity",
+			quantity:    5,
+			expectError: false,
+		},
+		{
+			name:        "valid quantity 1",
+			quantity:    1,
+			expectError: false,
+		},
+		{
+			name:        "zero quantity",
+			quantity:    0,
+			expectError: true,
+			errorMsg:    "quantity must be a positive integer",
+		},
+		{
+			name:        "negative quantity",
+			quantity:    -3,
+			expectError: true,
+			errorMsg:    "quantity must be a positive integer",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateQuantity(tt.quantity)
+			
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Equal(t, tt.errorMsg, err.Error())
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }
