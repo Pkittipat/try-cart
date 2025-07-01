@@ -1,0 +1,464 @@
+package cart
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestCart_AddProduct(t *testing.T) {
+	tests := []struct {
+		name     string
+		product  Product
+		quantity int64
+		setup    func(*Cart)
+		want     map[string]*CartItem
+	}{
+		{
+			name: "add new product",
+			product: Product{
+				ID:    "1",
+				Price: 10.00,
+			},
+			quantity: 2,
+			setup:    func(c *Cart) {},
+			want: map[string]*CartItem{
+				"1": {
+					Product: Product{
+						ID:    "1",
+						Price: 10.00,
+					},
+					Quantity: 2,
+				},
+			},
+		},
+		{
+			name: "add existing product",
+			product: Product{
+				ID:    "1",
+				Price: 10.00,
+			},
+			quantity: 3,
+			setup: func(c *Cart) {
+				c.AddProduct(Product{
+					ID:    "1",
+					Price: 10.00,
+				}, 2)
+			},
+			want: map[string]*CartItem{
+				"1": {
+					Product: Product{
+						ID:    "1",
+						Price: 10.00,
+					},
+					Quantity: 5,
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cart := NewCart()
+			tt.setup(cart)
+			cart.AddProduct(tt.product, tt.quantity)
+			assert.Equal(t, tt.want, cart.Items)
+		})
+	}
+}
+
+func TestCart_AddPromotion(t *testing.T) {
+	tests := []struct {
+		name      string
+		promotion Promotion
+		setup     func(*Cart)
+		want      map[string]*Promotion
+	}{
+		{
+			name: "add new promotion",
+			promotion: Promotion{
+				ProductID:     "1",
+				PromotionType: PercentageDiscount,
+				Discount:      10,
+			},
+			setup: func(c *Cart) {},
+			want: map[string]*Promotion{
+				"1": {
+					ProductID:     "1",
+					PromotionType: PercentageDiscount,
+					Discount:      10,
+				},
+			},
+		},
+		{
+			name: "add existing promotion",
+			promotion: Promotion{
+				ProductID:     "1",
+				PromotionType: PercentageDiscount,
+				Discount:      20,
+			},
+			setup: func(c *Cart) {
+				c.AddPromotion(Promotion{
+					ProductID:     "1",
+					PromotionType: PercentageDiscount,
+					Discount:      10,
+				})
+			},
+			want: map[string]*Promotion{
+				"1": {
+					ProductID:     "1",
+					PromotionType: PercentageDiscount,
+					Discount:      10,
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cart := NewCart()
+			tt.setup(cart)
+			cart.AddPromotion(tt.promotion)
+			assert.Equal(t, tt.want, cart.Promotion)
+		})
+	}
+}
+
+func TestCart_CalculateTotal(t *testing.T) {
+	tests := []struct {
+		name  string
+		setup func(*Cart)
+		want  float64
+	}{
+		{
+			name:  "no items",
+			setup: func(c *Cart) {},
+			want:  0.0,
+		},
+		{
+			name: "items without promotion",
+			setup: func(c *Cart) {
+				c.AddProduct(Product{
+					ID:    "1",
+					Price: 10.00,
+				}, 2)
+				c.AddProduct(Product{
+					ID:    "2",
+					Price: 20.00,
+				}, 1)
+			},
+			want: 40.00, // (10.00 * 2) + (20.00 * 1)
+		},
+		{
+			name: "items with percentage discount",
+			setup: func(c *Cart) {
+				c.AddProduct(Product{
+					ID:    "1",
+					Price: 10.00,
+				}, 2)
+				c.AddPromotion(Promotion{
+					ProductID:     "1",
+					PromotionType: PercentageDiscount,
+					Discount:      10,
+				})
+			},
+			want: 18.00, // (10.00 * 0.9 * 2)
+		},
+		{
+			name: "items with buy 1 get 1 free",
+			setup: func(c *Cart) {
+				c.AddProduct(Product{
+					ID:    "1",
+					Price: 10.00,
+				}, 3)
+				c.AddPromotion(Promotion{
+					ProductID:     "1",
+					PromotionType: Buy1Get1Free,
+				})
+			},
+			want: 20.00, // (10.00 * 2) - pay for 2 items, get 1 free
+		},
+		{
+			name: "items with total discount",
+			setup: func(c *Cart) {
+				c.AddProduct(Product{
+					ID:    "1",
+					Price: 10.00,
+				}, 2)
+				c.AddProduct(Product{
+					ID:    "2",
+					Price: 20.00,
+				}, 1)
+				c.AddPromotion(Promotion{
+					PromotionType: TotalDiscount,
+					Discount:      10,
+				})
+			},
+			want: 36.00, // (40.00 * 0.9)
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cart := NewCart()
+			tt.setup(cart)
+			got := cart.CalculateTotal()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestDisplayPrice(t *testing.T) {
+	tests := []struct {
+		name  string
+		price float64
+		want  string
+	}{
+		{
+			name:  "positive price",
+			price: 123.45,
+			want:  "123.45",
+		},
+		{
+			name:  "zero price",
+			price: 0.00,
+			want:  "0.00",
+		},
+		{
+			name:  "price with two decimal places",
+			price: 100.00,
+			want:  "100.00",
+		},
+		{
+			name:  "price with one decimal place",
+			price: 123.40,
+			want:  "123.40",
+		},
+		{
+			name:  "large price",
+			price: 9999999999999999.99,
+			want:  "10000000000000000.00",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := DisplayPrice(tt.price)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestProduct_GetDiscountedPrice(t *testing.T) {
+	tests := []struct {
+		name    string
+		product Product
+		want    float64
+	}{
+		{
+			name: "no discount",
+			product: Product{
+				ID:       "1",
+				Price:    100.00,
+				Discount: 0,
+			},
+			want: 100.00,
+		},
+		{
+			name: "10% discount",
+			product: Product{
+				ID:       "1",
+				Price:    100.00,
+				Discount: 10,
+			},
+			want: 90.00,
+		},
+		{
+			name: "50% discount",
+			product: Product{
+				ID:       "1",
+				Price:    100.00,
+				Discount: 50,
+			},
+			want: 50.00,
+		},
+		{
+			name: "100% discount",
+			product: Product{
+				ID:       "1",
+				Price:    100.00,
+				Discount: 100,
+			},
+			want: 0.00,
+		},
+		{
+			name: "invalid discount over 100%",
+			product: Product{
+				ID:       "1",
+				Price:    100.00,
+				Discount: 150,
+			},
+			want: 100.00,
+		},
+		{
+			name: "negative discount",
+			product: Product{
+				ID:       "1",
+				Price:    100.00,
+				Discount: -10,
+			},
+			want: 100.00,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.product.GetDiscountedPrice()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestProduct_ValidateDiscount(t *testing.T) {
+	tests := []struct {
+		name     string
+		discount int64
+		want     bool
+	}{
+		{
+			name:     "valid discount 0%",
+			discount: 0,
+			want:     true,
+		},
+		{
+			name:     "valid discount 50%",
+			discount: 50,
+			want:     true,
+		},
+		{
+			name:     "valid discount 100%",
+			discount: 100,
+			want:     true,
+		},
+		{
+			name:     "invalid discount over 100%",
+			discount: 101,
+			want:     false,
+		},
+		{
+			name:     "invalid negative discount",
+			discount: -1,
+			want:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			product := Product{
+				ID:       "1",
+				Price:    100.00,
+				Discount: tt.discount,
+			}
+			got := product.ValidateDiscount()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestCart_CalculateTotal_WithProductDiscounts(t *testing.T) {
+	tests := []struct {
+		name  string
+		setup func(*Cart)
+		want  float64
+	}{
+		{
+			name: "single product with discount",
+			setup: func(cart *Cart) {
+				product := Product{
+					ID:       "A",
+					Price:    100.00, // 100.00
+					Discount: 10,     // 10% discount
+				}
+				cart.AddProduct(product, 1)
+			},
+			want: 90.00, // 90.00
+		},
+		{
+			name: "multiple products with different discounts",
+			setup: func(cart *Cart) {
+				productA := Product{
+					ID:       "A",
+					Price:    100.00, // 100.00
+					Discount: 10,     // 10% discount
+				}
+				productB := Product{
+					ID:       "B",
+					Price:    50.00, // 50.00
+					Discount: 20,    // 20% discount
+				}
+				cart.AddProduct(productA, 1) // 90.00
+				cart.AddProduct(productB, 2) // 40.00 * 2 = 80.00
+			},
+			want: 170.00, // 90.00 + 80.00 = 170.00
+		},
+		{
+			name: "product discount with promotion",
+			setup: func(cart *Cart) {
+				product := Product{
+					ID:       "A",
+					Price:    100.00, // 100.00
+					Discount: 10,     // 10% discount -> 90.00
+				}
+				cart.AddProduct(product, 2)
+				// Apply 18% promotion discount on already discounted price
+				cart.AddPromotion(Promotion{
+					ProductID:     "A",
+					PromotionType: PercentageDiscount,
+					Discount:      18,
+				})
+			},
+			want: 147.60, // (90.00 * 2) * 0.82 = 147.60
+		},
+		{
+			name: "product discount with buy 1 get 1 free",
+			setup: func(cart *Cart) {
+				product := Product{
+					ID:       "A",
+					Price:    100.00, // 100.00
+					Discount: 20,     // 20% discount -> 80.00
+				}
+				cart.AddProduct(product, 3)
+				cart.AddPromotion(Promotion{
+					ProductID:     "A",
+					PromotionType: Buy1Get1Free,
+				})
+			},
+			want: 160.00, // ceil(3/2) * 80.00 = 2 * 80.00 = 160.00
+		},
+		{
+			name: "product discount with total discount",
+			setup: func(cart *Cart) {
+				product := Product{
+					ID:       "A",
+					Price:    100.00, // 100.00
+					Discount: 10,     // 10% discount -> 90.00
+				}
+				cart.AddProduct(product, 2)
+				cart.AddPromotion(Promotion{
+					PromotionType: TotalDiscount,
+					Discount:      15, // 15% total discount
+				})
+			},
+			want: 153.00, // (90.00 * 2) * 0.85 = 153.00
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cart := NewCart()
+			tt.setup(cart)
+			got := cart.CalculateTotal()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
