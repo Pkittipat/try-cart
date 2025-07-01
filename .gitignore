@@ -1,0 +1,20 @@
+# Claude MCP configuration (contains sensitive tokens)
+.claude_config.json
+
+# Go specific
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
