@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/pkittipat/try-cart/internal/domain/cart"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -212,7 +213,7 @@ func TestCartRepository_Update(t *testing.T) {
 			cartID: "test_cart_id",
 			updatedCart: func() *cart.Cart {
 				c := cart.NewCart()
-				c.AddProduct(cart.Product{ID: "A", Price: 10.00}, 2)
+				c.AddProduct(cart.Product{ID: "A", Price: decimal.NewFromFloat(10.00)}, 2)
 				return c
 			}(),
 			setupFunc: func(r *cartRepository) {
@@ -406,7 +407,7 @@ func TestCartRepository_ThreadSafety(t *testing.T) {
 			}
 
 			updatedCart := cart.NewCart()
-			product := cart.Product{ID: fmt.Sprintf("product%d", id), Price: float64(id * 100)}
+			product := cart.Product{ID: fmt.Sprintf("product%d", id), Price: decimal.NewFromFloat(float64(id * 100))}
 			updatedCart.AddProduct(product, int64(id))
 
 			err = repo.Update(ctx, cartID, updatedCart)

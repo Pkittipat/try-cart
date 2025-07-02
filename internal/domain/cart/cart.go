@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/shopspring/decimal"
 )
 
 type (
@@ -56,8 +58,8 @@ func (c *Cart) AddPromotion(promotion Promotion) {
 	c.Promotion[promotion.ProductID] = &promotion
 }
 
-func (c *Cart) CalculateTotal() float64 {
-	total := 0.0
+func (c *Cart) CalculateTotal() decimal.Decimal {
+	total := decimal.Zero
 	for _, item := range c.Items {
 		// Apply product discount first
 		discountedPrice := item.Product.GetDiscountedPrice()
@@ -65,25 +67,27 @@ func (c *Cart) CalculateTotal() float64 {
 		promo, hasPromo := c.Promotion[item.Product.ID]
 
 		if !hasPromo {
-			total += (discountedPrice * float64(qty))
+			qtyDecimal := decimal.NewFromInt(qty)
+			total = total.Add(discountedPrice.Mul(qtyDecimal))
 			continue
 		}
 
 		// Apply promotions to the discounted price
-		total += promo.CalculatePrice(discountedPrice, qty)
+		total = total.Add(promo.CalculatePrice(discountedPrice, qty))
 	}
 
 	if c.TotalDiscountPromotion != nil {
-		discount := c.TotalDiscountPromotion.Discount
-		total = total * (100 - float64(discount)) / 100.0
+		discount := decimal.NewFromInt(c.TotalDiscountPromotion.Discount)
+		hundred := decimal.NewFromInt(100)
+		total = total.Mul(hundred.Sub(discount)).Div(hundred)
 	}
 
 	return total
 }
 
-func DisplayPrice(price float64) string {
-	// Convert float64 price to string with 2 decimal places
-	return fmt.Sprintf("%.2f", price)
+func DisplayPrice(price decimal.Decimal) string {
+	// Convert decimal price to string with 2 decimal places
+	return price.StringFixed(2)
 }
 
 // ValidateProduct validates product data
@@ -92,7 +96,7 @@ func ValidateProduct(product Product) error {
 		return errors.New("product ID cannot be empty")
 	}
 
-	if product.Price < 0 {
+	if product.Price.LessThan(decimal.Zero) {
 		return errors.New("product price cannot be negative")
 	}
 

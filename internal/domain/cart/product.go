@@ -1,20 +1,24 @@
 package cart
 
+import "github.com/shopspring/decimal"
+
 type (
 	Product struct {
 		ID          string
 		Description string
-		Price       float64 // as decimal price
-		Discount    int64   // percentage discount (0-100)
+		Price       decimal.Decimal // as decimal price
+		Discount    int64           // percentage discount (0-100)
 	}
 )
 
 // GetDiscountedPrice calculates the final price after applying the product discount
-func (p Product) GetDiscountedPrice() float64 {
+func (p Product) GetDiscountedPrice() decimal.Decimal {
 	if p.Discount <= 0 || p.Discount > 100 {
 		return p.Price
 	}
-	return p.Price * (100 - float64(p.Discount)) / 100.0
+	discount := decimal.NewFromInt(p.Discount)
+	hundred := decimal.NewFromInt(100)
+	return p.Price.Mul(hundred.Sub(discount)).Div(hundred)
 }
 
 // ValidateDiscount checks if the discount percentage is valid

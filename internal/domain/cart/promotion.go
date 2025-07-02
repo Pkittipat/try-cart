@@ -1,6 +1,10 @@
 package cart
 
-import "math"
+import (
+	"math"
+
+	"github.com/shopspring/decimal"
+)
 
 type PromotionType string
 
@@ -19,14 +23,18 @@ type (
 	}
 )
 
-func (p *Promotion) CalculatePrice(price float64, qty int64) float64 {
+func (p *Promotion) CalculatePrice(price decimal.Decimal, qty int64) decimal.Decimal {
 	switch p.PromotionType {
 	case PercentageDiscount:
-		discountedPrice := price * (100 - float64(p.Discount)) / 100.0
-		return discountedPrice * float64(qty)
+		discount := decimal.NewFromInt(p.Discount)
+		hundred := decimal.NewFromInt(100)
+		quantity := decimal.NewFromInt(qty)
+		discountedPrice := price.Mul(hundred.Sub(discount)).Div(hundred)
+		return discountedPrice.Mul(quantity)
 	case Buy1Get1Free:
 		paidQty := math.Ceil(float64(qty) / 2) // 3 / 2 = 1.5 := 2
-		return price * paidQty
+		paidQtyDecimal := decimal.NewFromFloat(paidQty)
+		return price.Mul(paidQtyDecimal)
 	}
-	return 0
+	return decimal.Zero
 }

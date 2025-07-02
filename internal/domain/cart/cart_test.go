@@ -3,6 +3,7 @@ package cart
 import (
 	"testing"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,7 +19,7 @@ func TestCart_AddProduct(t *testing.T) {
 			name: "add new product",
 			product: Product{
 				ID:    "1",
-				Price: 10.00,
+				Price: decimal.NewFromFloat(10.00),
 			},
 			quantity: 2,
 			setup:    func(c *Cart) {},
@@ -26,7 +27,7 @@ func TestCart_AddProduct(t *testing.T) {
 				"1": {
 					Product: Product{
 						ID:    "1",
-						Price: 10.00,
+						Price: decimal.NewFromFloat(10.00),
 					},
 					Quantity: 2,
 				},
@@ -36,13 +37,13 @@ func TestCart_AddProduct(t *testing.T) {
 			name: "add existing product",
 			product: Product{
 				ID:    "1",
-				Price: 10.00,
+				Price: decimal.NewFromFloat(10.00),
 			},
 			quantity: 3,
 			setup: func(c *Cart) {
 				err := c.AddProduct(Product{
 					ID:    "1",
-					Price: 10.00,
+					Price: decimal.NewFromFloat(10.00),
 				}, 2)
 				assert.NoError(t, err)
 			},
@@ -50,7 +51,7 @@ func TestCart_AddProduct(t *testing.T) {
 				"1": {
 					Product: Product{
 						ID:    "1",
-						Price: 10.00,
+						Price: decimal.NewFromFloat(10.00),
 					},
 					Quantity: 5,
 				},
@@ -130,35 +131,35 @@ func TestCart_CalculateTotal(t *testing.T) {
 	tests := []struct {
 		name  string
 		setup func(*Cart)
-		want  float64
+		want  decimal.Decimal
 	}{
 		{
 			name:  "no items",
 			setup: func(c *Cart) {},
-			want:  0.0,
+			want:  decimal.NewFromFloat(0.0),
 		},
 		{
 			name: "items without promotion",
 			setup: func(c *Cart) {
 				err := c.AddProduct(Product{
 					ID:    "1",
-					Price: 10.00,
+					Price: decimal.NewFromFloat(10.00),
 				}, 2)
 				assert.NoError(t, err)
 				err = c.AddProduct(Product{
 					ID:    "2",
-					Price: 20.00,
+					Price: decimal.NewFromFloat(20.00),
 				}, 1)
 				assert.NoError(t, err)
 			},
-			want: 40.00, // (10.00 * 2) + (20.00 * 1)
+			want: decimal.NewFromFloat(40.00), // (10.00 * 2) + (20.00 * 1)
 		},
 		{
 			name: "items with percentage discount",
 			setup: func(c *Cart) {
 				err := c.AddProduct(Product{
 					ID:    "1",
-					Price: 10.00,
+					Price: decimal.NewFromFloat(10.00),
 				}, 2)
 				assert.NoError(t, err)
 				c.AddPromotion(Promotion{
@@ -167,14 +168,14 @@ func TestCart_CalculateTotal(t *testing.T) {
 					Discount:      10,
 				})
 			},
-			want: 18.00, // (10.00 * 0.9 * 2)
+			want: decimal.NewFromFloat(18.00), // (10.00 * 0.9 * 2)
 		},
 		{
 			name: "items with buy 1 get 1 free",
 			setup: func(c *Cart) {
 				err := c.AddProduct(Product{
 					ID:    "1",
-					Price: 10.00,
+					Price: decimal.NewFromFloat(10.00),
 				}, 3)
 				assert.NoError(t, err)
 				c.AddPromotion(Promotion{
@@ -182,19 +183,19 @@ func TestCart_CalculateTotal(t *testing.T) {
 					PromotionType: Buy1Get1Free,
 				})
 			},
-			want: 20.00, // (10.00 * 2) - pay for 2 items, get 1 free
+			want: decimal.NewFromFloat(20.00), // (10.00 * 2) - pay for 2 items, get 1 free
 		},
 		{
 			name: "items with total discount",
 			setup: func(c *Cart) {
 				err := c.AddProduct(Product{
 					ID:    "1",
-					Price: 10.00,
+					Price: decimal.NewFromFloat(10.00),
 				}, 2)
 				assert.NoError(t, err)
 				err = c.AddProduct(Product{
 					ID:    "2",
-					Price: 20.00,
+					Price: decimal.NewFromFloat(20.00),
 				}, 1)
 				assert.NoError(t, err)
 				c.AddPromotion(Promotion{
@@ -202,7 +203,7 @@ func TestCart_CalculateTotal(t *testing.T) {
 					Discount:      10,
 				})
 			},
-			want: 36.00, // (40.00 * 0.9)
+			want: decimal.NewFromFloat(36.00), // (40.00 * 0.9)
 		},
 	}
 
@@ -211,7 +212,7 @@ func TestCart_CalculateTotal(t *testing.T) {
 			cart := NewCart()
 			tt.setup(cart)
 			got := cart.CalculateTotal()
-			assert.Equal(t, tt.want, got)
+			assert.True(t, tt.want.Equal(got), "Expected %s, got %s", tt.want.String(), got.String())
 		})
 	}
 }
@@ -219,33 +220,33 @@ func TestCart_CalculateTotal(t *testing.T) {
 func TestDisplayPrice(t *testing.T) {
 	tests := []struct {
 		name  string
-		price float64
+		price decimal.Decimal
 		want  string
 	}{
 		{
 			name:  "positive price",
-			price: 123.45,
+			price: decimal.NewFromFloat(123.45),
 			want:  "123.45",
 		},
 		{
 			name:  "zero price",
-			price: 0.00,
+			price: decimal.NewFromFloat(0.00),
 			want:  "0.00",
 		},
 		{
 			name:  "price with two decimal places",
-			price: 100.00,
+			price: decimal.NewFromFloat(100.00),
 			want:  "100.00",
 		},
 		{
 			name:  "price with one decimal place",
-			price: 123.40,
+			price: decimal.NewFromFloat(123.40),
 			want:  "123.40",
 		},
 		{
-			name:  "large price",
-			price: 9999999999999999.99,
-			want:  "10000000000000000.00",
+			name:  "precise decimal from string",
+			price: decimal.RequireFromString("9999999999999999.99"),
+			want:  "9999999999999999.99", // Precise decimal maintains accuracy
 		},
 	}
 
@@ -261,68 +262,68 @@ func TestProduct_GetDiscountedPrice(t *testing.T) {
 	tests := []struct {
 		name    string
 		product Product
-		want    float64
+		want    decimal.Decimal
 	}{
 		{
 			name: "no discount",
 			product: Product{
 				ID:       "1",
-				Price:    100.00,
+				Price:    decimal.NewFromFloat(100.00),
 				Discount: 0,
 			},
-			want: 100.00,
+			want: decimal.NewFromFloat(100.00),
 		},
 		{
 			name: "10% discount",
 			product: Product{
 				ID:       "1",
-				Price:    100.00,
+				Price:    decimal.NewFromFloat(100.00),
 				Discount: 10,
 			},
-			want: 90.00,
+			want: decimal.NewFromFloat(90.00),
 		},
 		{
 			name: "50% discount",
 			product: Product{
 				ID:       "1",
-				Price:    100.00,
+				Price:    decimal.NewFromFloat(100.00),
 				Discount: 50,
 			},
-			want: 50.00,
+			want: decimal.NewFromFloat(50.00),
 		},
 		{
 			name: "100% discount",
 			product: Product{
 				ID:       "1",
-				Price:    100.00,
+				Price:    decimal.NewFromFloat(100.00),
 				Discount: 100,
 			},
-			want: 0.00,
+			want: decimal.NewFromFloat(0.00),
 		},
 		{
 			name: "invalid discount over 100%",
 			product: Product{
 				ID:       "1",
-				Price:    100.00,
+				Price:    decimal.NewFromFloat(100.00),
 				Discount: 150,
 			},
-			want: 100.00,
+			want: decimal.NewFromFloat(100.00),
 		},
 		{
 			name: "negative discount",
 			product: Product{
 				ID:       "1",
-				Price:    100.00,
+				Price:    decimal.NewFromFloat(100.00),
 				Discount: -10,
 			},
-			want: 100.00,
+			want: decimal.NewFromFloat(100.00),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.product.GetDiscountedPrice()
-			assert.Equal(t, tt.want, got)
+			assert.True(t, tt.want.Equal(got), "Expected %s, got %s", tt.want.String(), got.String())
 		})
 	}
 }
@@ -364,7 +365,7 @@ func TestProduct_ValidateDiscount(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			product := Product{
 				ID:       "1",
-				Price:    100.00,
+				Price:    decimal.NewFromFloat(100.00),
 				Discount: tt.discount,
 			}
 			got := product.ValidateDiscount()
@@ -377,32 +378,32 @@ func TestCart_CalculateTotal_WithProductDiscounts(t *testing.T) {
 	tests := []struct {
 		name  string
 		setup func(*Cart)
-		want  float64
+		want  decimal.Decimal
 	}{
 		{
 			name: "single product with discount",
 			setup: func(cart *Cart) {
 				product := Product{
 					ID:       "A",
-					Price:    100.00, // 100.00
+					Price:    decimal.NewFromFloat(100.00), // 100.00
 					Discount: 10,     // 10% discount
 				}
 				err := cart.AddProduct(product, 1)
 				assert.NoError(t, err)
 			},
-			want: 90.00, // 90.00
+			want: decimal.NewFromFloat(90.00), // 90.00
 		},
 		{
 			name: "multiple products with different discounts",
 			setup: func(cart *Cart) {
 				productA := Product{
 					ID:       "A",
-					Price:    100.00, // 100.00
+					Price:    decimal.NewFromFloat(100.00), // 100.00
 					Discount: 10,     // 10% discount
 				}
 				productB := Product{
 					ID:       "B",
-					Price:    50.00, // 50.00
+					Price:    decimal.NewFromFloat(50.00), // 50.00
 					Discount: 20,    // 20% discount
 				}
 				err := cart.AddProduct(productA, 1) // 90.00
@@ -410,14 +411,14 @@ func TestCart_CalculateTotal_WithProductDiscounts(t *testing.T) {
 				err = cart.AddProduct(productB, 2) // 40.00 * 2 = 80.00
 				assert.NoError(t, err)
 			},
-			want: 170.00, // 90.00 + 80.00 = 170.00
+			want: decimal.NewFromFloat(170.00), // 90.00 + 80.00 = 170.00
 		},
 		{
 			name: "product discount with promotion",
 			setup: func(cart *Cart) {
 				product := Product{
 					ID:       "A",
-					Price:    100.00, // 100.00
+					Price:    decimal.NewFromFloat(100.00), // 100.00
 					Discount: 10,     // 10% discount -> 90.00
 				}
 				err := cart.AddProduct(product, 2)
@@ -429,14 +430,14 @@ func TestCart_CalculateTotal_WithProductDiscounts(t *testing.T) {
 					Discount:      18,
 				})
 			},
-			want: 147.60, // (90.00 * 2) * 0.82 = 147.60
+			want: decimal.NewFromFloat(147.60), // (90.00 * 2) * 0.82 = 147.60
 		},
 		{
 			name: "product discount with buy 1 get 1 free",
 			setup: func(cart *Cart) {
 				product := Product{
 					ID:       "A",
-					Price:    100.00, // 100.00
+					Price:    decimal.NewFromFloat(100.00), // 100.00
 					Discount: 20,     // 20% discount -> 80.00
 				}
 				err := cart.AddProduct(product, 3)
@@ -446,14 +447,14 @@ func TestCart_CalculateTotal_WithProductDiscounts(t *testing.T) {
 					PromotionType: Buy1Get1Free,
 				})
 			},
-			want: 160.00, // ceil(3/2) * 80.00 = 2 * 80.00 = 160.00
+			want: decimal.NewFromFloat(160.00), // ceil(3/2) * 80.00 = 2 * 80.00 = 160.00
 		},
 		{
 			name: "product discount with total discount",
 			setup: func(cart *Cart) {
 				product := Product{
 					ID:       "A",
-					Price:    100.00, // 100.00
+					Price:    decimal.NewFromFloat(100.00), // 100.00
 					Discount: 10,     // 10% discount -> 90.00
 				}
 				err := cart.AddProduct(product, 2)
@@ -463,7 +464,7 @@ func TestCart_CalculateTotal_WithProductDiscounts(t *testing.T) {
 					Discount:      15, // 15% total discount
 				})
 			},
-			want: 153.00, // (90.00 * 2) * 0.85 = 153.00
+			want: decimal.NewFromFloat(153.00), // (90.00 * 2) * 0.85 = 153.00
 		},
 	}
 
@@ -472,7 +473,7 @@ func TestCart_CalculateTotal_WithProductDiscounts(t *testing.T) {
 			cart := NewCart()
 			tt.setup(cart)
 			got := cart.CalculateTotal()
-			assert.Equal(t, tt.want, got)
+			assert.True(t, tt.want.Equal(got), "Expected %s, got %s", tt.want.String(), got.String())
 		})
 	}
 }
@@ -489,7 +490,7 @@ func TestCart_AddProduct_Validation(t *testing.T) {
 			name: "valid product and quantity",
 			product: Product{
 				ID:    "1",
-				Price: 10.00,
+				Price: decimal.NewFromFloat(10.00),
 			},
 			quantity:    2,
 			expectError: false,
@@ -498,7 +499,7 @@ func TestCart_AddProduct_Validation(t *testing.T) {
 			name: "empty product ID",
 			product: Product{
 				ID:    "",
-				Price: 10.00,
+				Price: decimal.NewFromFloat(10.00),
 			},
 			quantity:    2,
 			expectError: true,
@@ -508,7 +509,7 @@ func TestCart_AddProduct_Validation(t *testing.T) {
 			name: "whitespace product ID",
 			product: Product{
 				ID:    "   ",
-				Price: 10.00,
+				Price: decimal.NewFromFloat(10.00),
 			},
 			quantity:    2,
 			expectError: true,
@@ -518,7 +519,7 @@ func TestCart_AddProduct_Validation(t *testing.T) {
 			name: "negative product price",
 			product: Product{
 				ID:    "1",
-				Price: -10.00,
+				Price: decimal.NewFromFloat(-10.00),
 			},
 			quantity:    2,
 			expectError: true,
@@ -528,7 +529,7 @@ func TestCart_AddProduct_Validation(t *testing.T) {
 			name: "invalid product discount over 100",
 			product: Product{
 				ID:       "1",
-				Price:    10.00,
+				Price:    decimal.NewFromFloat(10.00),
 				Discount: 150,
 			},
 			quantity:    2,
@@ -539,7 +540,7 @@ func TestCart_AddProduct_Validation(t *testing.T) {
 			name: "invalid product discount negative",
 			product: Product{
 				ID:       "1",
-				Price:    10.00,
+				Price:    decimal.NewFromFloat(10.00),
 				Discount: -10,
 			},
 			quantity:    2,
@@ -550,7 +551,7 @@ func TestCart_AddProduct_Validation(t *testing.T) {
 			name: "zero quantity",
 			product: Product{
 				ID:    "1",
-				Price: 10.00,
+				Price: decimal.NewFromFloat(10.00),
 			},
 			quantity:    0,
 			expectError: true,
@@ -560,7 +561,7 @@ func TestCart_AddProduct_Validation(t *testing.T) {
 			name: "negative quantity",
 			product: Product{
 				ID:    "1",
-				Price: 10.00,
+				Price: decimal.NewFromFloat(10.00),
 			},
 			quantity:    -5,
 			expectError: true,
@@ -594,7 +595,7 @@ func TestValidateProduct(t *testing.T) {
 			name: "valid product",
 			product: Product{
 				ID:       "valid-id",
-				Price:    100.00,
+				Price:    decimal.NewFromFloat(100.00),
 				Discount: 10,
 			},
 			expectError: false,
@@ -603,7 +604,7 @@ func TestValidateProduct(t *testing.T) {
 			name: "empty product ID",
 			product: Product{
 				ID:    "",
-				Price: 100.00,
+				Price: decimal.NewFromFloat(100.00),
 			},
 			expectError: true,
 			errorMsg:    "product ID cannot be empty",
@@ -612,7 +613,7 @@ func TestValidateProduct(t *testing.T) {
 			name: "whitespace product ID",
 			product: Product{
 				ID:    "   ",
-				Price: 100.00,
+				Price: decimal.NewFromFloat(100.00),
 			},
 			expectError: true,
 			errorMsg:    "product ID cannot be empty",
@@ -621,7 +622,7 @@ func TestValidateProduct(t *testing.T) {
 			name: "negative price",
 			product: Product{
 				ID:    "valid-id",
-				Price: -50.00,
+				Price: decimal.NewFromFloat(-50.00),
 			},
 			expectError: true,
 			errorMsg:    "product price cannot be negative",
@@ -630,7 +631,7 @@ func TestValidateProduct(t *testing.T) {
 			name: "invalid discount over 100",
 			product: Product{
 				ID:       "valid-id",
-				Price:    100.00,
+				Price:    decimal.NewFromFloat(100.00),
 				Discount: 150,
 			},
 			expectError: true,
@@ -640,7 +641,7 @@ func TestValidateProduct(t *testing.T) {
 			name: "invalid negative discount",
 			product: Product{
 				ID:       "valid-id",
-				Price:    100.00,
+				Price:    decimal.NewFromFloat(100.00),
 				Discount: -10,
 			},
 			expectError: true,
